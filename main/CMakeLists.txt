@@ -21,5 +21,6 @@
 
 # add_executable(embedded_player_exe ${SOURCES})
 # target_link_libraries(embedded_player_exe ${LLVM_LIBRARIES})
-idf_component_register(SRCS "main.c"
+file(GLOB SOURCES "src/*.c")
+idf_component_register(SRCS ${SOURCES}
                     INCLUDE_DIRS "")
