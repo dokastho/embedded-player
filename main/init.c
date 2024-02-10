@@ -8,4 +8,5 @@ int
 init_playercontext(void)
 {
     init_panel();
+    return 0;
 }
