@@ -41,6 +41,9 @@
 #define APP_RC_CT_TL_GET_CAPS (0)
 #define APP_RC_CT_TL_RN_VOLUME_CHANGE (1)
 
+/* Maximum number of devices to be able to recognize */
+#define DEVICE_LIST_LEN 64
+
 enum
 {
     BT_APP_STACK_UP_EVT = 0x0000,   /* event for stack up */
@@ -84,6 +87,8 @@ static void bt_app_work_dispatched(bt_app_msg_t *msg);
  ********************************/
 static QueueHandle_t s_bt_app_task_queue = NULL;
 static TaskHandle_t s_bt_app_task_handle = NULL;
+static bt_device_t devices[DEVICE_LIST_LEN] = {0};
+static unsigned int device_cursor = 0;
 
 /*********************************
  * STATIC FUNCTION DEFINITIONS
@@ -403,15 +408,13 @@ static void filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param)
     {
         get_name_from_eir(eir, s_peer_bdname, NULL);
         // add to list of available devices
-        // when user chooses a device then cancel discovery
-        if (strcmp((char *)s_peer_bdname, TARGET_DEVICE_NAME) == 0)
-        {
-            ESP_LOGI(BT_AV_TAG, "Found a target device, address %s, name %s", bda_str, s_peer_bdname);
-            s_a2d_state = APP_AV_STATE_DISCOVERED;
-            memcpy(s_peer_bda, param->disc_res.bda, ESP_BD_ADDR_LEN);
-            ESP_LOGI(BT_AV_TAG, "Cancel device discovery ...");
-            esp_bt_gap_cancel_discovery();
-        }
+        bt_device_t dev;
+        dev.alias[ALIAS_LEN + 1] = '\000';
+        memcpy(dev.alias, s_peer_bdname, ALIAS_LEN);
+        memcpy(dev.bda, param->disc_res.bda, ESP_BD_ADDR_LEN);
+        memcpy(&devices[device_cursor], &dev, sizeof(bt_device_t));
+
+        device_cursor = (device_cursor + 1) % DEVICE_LIST_LEN;
     }
 }
 
@@ -1013,4 +1016,24 @@ static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param)
         break;
     }
     }
+}
+
+void bt_app_sel_target(int target_idx)
+{
+    char bda_str[18];
+    bda2str(devices[target_idx].bda, bda_str, 18);
+    ESP_LOGI(BT_AV_TAG, "Found a target device, address %s, name %s", bda_str, s_peer_bdname);
+    s_a2d_state = APP_AV_STATE_DISCOVERED;
+    memcpy(s_peer_bda, &devices[target_idx].bda, ESP_BD_ADDR_LEN);
+    ESP_LOGI(BT_AV_TAG, "Cancel device discovery ...");
+    esp_bt_gap_cancel_discovery();
+}
+
+void bt_app_dev_ls()
+{
+    for (size_t i = 0; i < device_cursor; i++)
+    {
+        printf("%d:\t%s\n", i, devices[i].alias);
+    }
+    printf("\n");
 }

@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include "esp_bt_defs.h"
 
 /* log tag */
 #define BT_APP_CORE_TAG "BT_APP_CORE"
@@ -33,6 +34,14 @@ typedef struct
     bt_app_cb_t cb; /*!< context switch callback */
     void *param;    /*!< parameter area needs to be last */
 } bt_app_msg_t;
+
+/* message to be sent */
+#define ALIAS_LEN 31
+typedef struct
+{
+    esp_bd_addr_t bda;      /*!< bluetooth device address */
+    char alias[ALIAS_LEN + 1];  /*!< device name for user identification */
+} __attribute__((packed)) bt_device_t;
 
 /**
  * @brief    parameter deep-copy function to be customized
@@ -65,5 +74,15 @@ void bt_app_task_start_up(void);
  * @brief    shut down the application task
  */
 void bt_app_task_shut_down(void);
+
+/**
+ * @brief    select a device to pair with
+ */
+void bt_app_sel_target(int);
+
+/**
+ * @brief    display discovered devices
+ */
+void bt_app_dev_ls(void);
 
 #endif /* __BT_APP_CORE_H__ */
