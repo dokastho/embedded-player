@@ -23,4 +23,4 @@
 # target_link_libraries(embedded_player_exe ${LLVM_LIBRARIES})
 file(GLOB SOURCES "*.c")
 idf_component_register(SRCS ${SOURCES}
-                    INCLUDE_DIRS "")
+                    INCLUDE_DIRS ".")
