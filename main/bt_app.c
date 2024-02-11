@@ -41,9 +41,6 @@
 #define APP_RC_CT_TL_GET_CAPS (0)
 #define APP_RC_CT_TL_RN_VOLUME_CHANGE (1)
 
-/* Maximum number of devices to be able to recognize */
-#define DEVICE_LIST_LEN 64
-
 enum
 {
     BT_APP_STACK_UP_EVT = 0x0000,   /* event for stack up */
@@ -81,6 +78,39 @@ static void bt_app_task_handler(void *arg);
 static bool bt_app_send_msg(bt_app_msg_t *msg);
 /* handler for dispatched message */
 static void bt_app_work_dispatched(bt_app_msg_t *msg);
+
+/* handler for bluetooth stack enabled events */
+static void bt_av_hdl_stack_evt(uint16_t event, void *p_param);
+
+/* avrc controller event handler */
+static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param);
+
+/* GAP callback function */
+static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param);
+
+/* callback function for A2DP source */
+static void bt_app_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param);
+
+/* callback function for A2DP source audio data stream */
+static int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len);
+
+/* callback function for AVRCP controller */
+static void bt_app_rc_ct_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t *param);
+
+/* handler for heart beat timer */
+static void bt_app_a2d_heart_beat(TimerHandle_t arg);
+
+/* A2DP application state machine */
+static void bt_app_av_sm_hdlr(uint16_t event, void *param);
+
+/* utils for transfer BLuetooth Deveice Address into string form */
+static char *bda2str(esp_bd_addr_t bda, char *str, size_t size);
+
+/* A2DP application state machine handler for each state */
+static void bt_app_av_state_unconnected_hdlr(uint16_t event, void *param);
+static void bt_app_av_state_connecting_hdlr(uint16_t event, void *param);
+static void bt_app_av_state_connected_hdlr(uint16_t event, void *param);
+static void bt_app_av_state_disconnecting_hdlr(uint16_t event, void *param);
 
 /*********************************
  * STATIC VARIABLE DEFINITIONS
@@ -243,9 +273,16 @@ void bt_app_task_start_up(void)
     esp_bt_pin_code_t pin_code;
     esp_bt_gap_set_pin(pin_type, 0, pin_code);
 
-    // start app task handler and return
     s_bt_app_task_queue = xQueueCreate(10, sizeof(bt_app_msg_t));
     xTaskCreate(bt_app_task_handler, "BtAppTask", 2048, NULL, 10, &s_bt_app_task_handle);
+
+    /* Bluetooth device name, connection mode and profile set up */
+    bt_app_work_dispatch(bt_av_hdl_stack_evt, BT_APP_STACK_UP_EVT, NULL, 0, NULL);
+
+    ESP_LOGI(BT_AV_TAG, "Silencing logs...");
+    esp_log_level_set(BT_AV_TAG, ESP_LOG_WARN);
+
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
 }
 
 void bt_app_task_shut_down(void)
@@ -261,39 +298,6 @@ void bt_app_task_shut_down(void)
         s_bt_app_task_queue = NULL;
     }
 }
-
-/* handler for bluetooth stack enabled events */
-static void bt_av_hdl_stack_evt(uint16_t event, void *p_param);
-
-/* avrc controller event handler */
-static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param);
-
-/* GAP callback function */
-static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param);
-
-/* callback function for A2DP source */
-static void bt_app_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param);
-
-/* callback function for A2DP source audio data stream */
-static int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len);
-
-/* callback function for AVRCP controller */
-static void bt_app_rc_ct_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t *param);
-
-/* handler for heart beat timer */
-static void bt_app_a2d_heart_beat(TimerHandle_t arg);
-
-/* A2DP application state machine */
-static void bt_app_av_sm_hdlr(uint16_t event, void *param);
-
-/* utils for transfer BLuetooth Deveice Address into string form */
-static char *bda2str(esp_bd_addr_t bda, char *str, size_t size);
-
-/* A2DP application state machine handler for each state */
-static void bt_app_av_state_unconnected_hdlr(uint16_t event, void *param);
-static void bt_app_av_state_connecting_hdlr(uint16_t event, void *param);
-static void bt_app_av_state_connected_hdlr(uint16_t event, void *param);
-static void bt_app_av_state_disconnecting_hdlr(uint16_t event, void *param);
 
 /*********************************
  * STATIC VARIABLE DEFINITIONS
@@ -407,7 +411,15 @@ static void filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param)
     if (eir)
     {
         get_name_from_eir(eir, s_peer_bdname, NULL);
-        // add to list of available devices
+        // add to list of available devices if not found already
+        for (size_t i = 0; i < device_cursor; i++)
+        {
+            if (memcmp(devices[i].alias, s_peer_bdname, ALIAS_LEN) == 0)
+            {
+                return;
+            }
+        }
+        
         bt_device_t dev;
         dev.alias[ALIAS_LEN + 1] = '\000';
         memcpy(dev.alias, s_peer_bdname, ALIAS_LEN);

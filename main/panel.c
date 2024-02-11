@@ -11,8 +11,6 @@ SSD1306_t panel;
 void
 init_panel(void)
 {
-    printf("panel init...\n");
-
     spi_master_init(&panel, CONFIG_MOSI_GPIO, CONFIG_SCLK_GPIO, CONFIG_CS_GPIO, CONFIG_DC_GPIO, CONFIG_RESET_GPIO);
     ssd1306_init(&panel, 128, 64);
     

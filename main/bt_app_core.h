@@ -12,6 +12,9 @@
 #include <stdio.h>
 #include "esp_bt_defs.h"
 
+/* Maximum number of devices to be able to recognize */
+#define DEVICE_LIST_LEN 64
+
 /* log tag */
 #define BT_APP_CORE_TAG "BT_APP_CORE"
 
@@ -40,7 +43,7 @@ typedef struct
 typedef struct
 {
     esp_bd_addr_t bda;      /*!< bluetooth device address */
-    char alias[ALIAS_LEN + 1];  /*!< device name for user identification */
+    uint8_t alias[ALIAS_LEN + 1];  /*!< device name for user identification */
 } __attribute__((packed)) bt_device_t;
 
 /**
