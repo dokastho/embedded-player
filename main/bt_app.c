@@ -279,9 +279,9 @@ void bt_app_task_start_up(void)
     /* Bluetooth device name, connection mode and profile set up */
     bt_app_work_dispatch(bt_av_hdl_stack_evt, BT_APP_STACK_UP_EVT, NULL, 0, NULL);
 
-    ESP_LOGI(BT_AV_TAG, "Silencing logs...");
-    esp_log_level_set(BT_AV_TAG, ESP_LOG_WARN);
-
+    // ESP_LOGI(BT_AV_TAG, "Silencing logs...");
+    // esp_log_level_set(BT_AV_TAG, ESP_LOG_WARN);
+    printf("loading...\n");
     vTaskDelay(3000 / portTICK_PERIOD_MS);
 }
 
@@ -414,12 +414,12 @@ static void filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param)
         // add to list of available devices if not found already
         for (size_t i = 0; i < device_cursor; i++)
         {
-            if (memcmp(devices[i].alias, s_peer_bdname, ALIAS_LEN) == 0)
+            if (memcmp(devices[i].bda, param->disc_res.bda, ESP_BD_ADDR_LEN) == 0)
             {
                 return;
             }
         }
-        
+
         bt_device_t dev;
         dev.alias[ALIAS_LEN + 1] = '\000';
         memcpy(dev.alias, s_peer_bdname, ALIAS_LEN);
@@ -1037,6 +1037,7 @@ void bt_app_sel_target(int target_idx)
     ESP_LOGI(BT_AV_TAG, "Found a target device, address %s, name %s", bda_str, s_peer_bdname);
     s_a2d_state = APP_AV_STATE_DISCOVERED;
     memcpy(s_peer_bda, &devices[target_idx].bda, ESP_BD_ADDR_LEN);
+    printf("%s", bda2str(s_peer_bda, bda_str, 18));
     ESP_LOGI(BT_AV_TAG, "Cancel device discovery ...");
     esp_bt_gap_cancel_discovery();
 }
@@ -1047,5 +1048,8 @@ void bt_app_dev_ls()
     {
         printf("%d:\t%s\n", i, devices[i].alias);
     }
-    printf("\n");
+    if (device_cursor > 0)
+    {
+        printf("\n");
+    }
 }
