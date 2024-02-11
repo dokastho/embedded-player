@@ -30,24 +30,26 @@
 #include "esp_avrc_api.h"
 
 /* log tags */
-#define BT_AV_TAG             "BT_AV"
-#define BT_RC_CT_TAG          "RC_CT"
+#define BT_AV_TAG "BT_AV"
+#define BT_RC_CT_TAG "RC_CT"
 
 /* device name */
-#define TARGET_DEVICE_NAME    "CHANGE ME"
-#define LOCAL_DEVICE_NAME     "ESP_A2DP_SRC"
+#define TARGET_DEVICE_NAME "CHANGE ME"
+#define LOCAL_DEVICE_NAME "ESP_A2DP_SRC"
 
 /* AVRCP used transaction label */
-#define APP_RC_CT_TL_GET_CAPS            (0)
-#define APP_RC_CT_TL_RN_VOLUME_CHANGE    (1)
+#define APP_RC_CT_TL_GET_CAPS (0)
+#define APP_RC_CT_TL_RN_VOLUME_CHANGE (1)
 
-enum {
-    BT_APP_STACK_UP_EVT   = 0x0000,    /* event for stack up */
-    BT_APP_HEART_BEAT_EVT = 0xff00,    /* event for heart beat */
+enum
+{
+    BT_APP_STACK_UP_EVT = 0x0000,   /* event for stack up */
+    BT_APP_HEART_BEAT_EVT = 0xff00, /* event for heart beat */
 };
 
 /* A2DP global states */
-enum {
+enum
+{
     APP_AV_STATE_IDLE,
     APP_AV_STATE_DISCOVERING,
     APP_AV_STATE_DISCOVERED,
@@ -58,7 +60,8 @@ enum {
 };
 
 /* sub states of APP_AV_STATE_CONNECTED */
-enum {
+enum
+{
     APP_AV_MEDIA_STATE_IDLE,
     APP_AV_MEDIA_STATE_STARTING,
     APP_AV_MEDIA_STATE_STARTED,
@@ -177,6 +180,65 @@ bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, i
 
 void bt_app_task_start_up(void)
 {
+    /* initialize NVS — it is used to store PHY calibration data */
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    /*
+     * This example only uses the functions of Classical Bluetooth.
+     * So release the controller memory for Bluetooth Low Energy.
+     */
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
+
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    if (esp_bt_controller_init(&bt_cfg) != ESP_OK)
+    {
+        ESP_LOGE(BT_AV_TAG, "%s initialize controller failed", __func__);
+        return;
+    }
+    if (esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT) != ESP_OK)
+    {
+        ESP_LOGE(BT_AV_TAG, "%s enable controller failed", __func__);
+        return;
+    }
+
+    esp_bluedroid_config_t bluedroid_cfg = BT_BLUEDROID_INIT_CONFIG_DEFAULT();
+#if (CONFIG_EXAMPLE_SSP_ENABLED == false)
+    bluedroid_cfg.ssp_en = false;
+#endif
+    if ((ret = esp_bluedroid_init_with_cfg(&bluedroid_cfg)) != ESP_OK)
+    {
+        ESP_LOGE(BT_AV_TAG, "%s initialize bluedroid failed: %s", __func__, esp_err_to_name(ret));
+        return;
+    }
+
+    if (esp_bluedroid_enable() != ESP_OK)
+    {
+        ESP_LOGE(BT_AV_TAG, "%s enable bluedroid failed", __func__);
+        return;
+    }
+
+#if (CONFIG_EXAMPLE_SSP_ENABLED == true)
+    /* set default parameters for Secure Simple Pairing */
+    esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
+    esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
+    esp_bt_gap_set_security_param(param_type, &iocap, sizeof(uint8_t));
+#endif
+
+    /*
+     * Set default parameters for Legacy Pairing
+     * Use variable pin, input pin code when pairing
+     */
+    esp_bt_pin_type_t pin_type = ESP_BT_PIN_TYPE_VARIABLE;
+    esp_bt_pin_code_t pin_code;
+    esp_bt_gap_set_pin(pin_type, 0, pin_code);
+
+    // start app task handler and return
     s_bt_app_task_queue = xQueueCreate(10, sizeof(bt_app_msg_t));
     xTaskCreate(bt_app_task_handler, "BtAppTask", 2048, NULL, 10, &s_bt_app_task_handle);
 }
@@ -340,6 +402,8 @@ static void filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param)
     if (eir)
     {
         get_name_from_eir(eir, s_peer_bdname, NULL);
+        // add to list of available devices
+        // when user chooses a device then cancel discovery
         if (strcmp((char *)s_peer_bdname, TARGET_DEVICE_NAME) == 0)
         {
             ESP_LOGI(BT_AV_TAG, "Found a target device, address %s, name %s", bda_str, s_peer_bdname);
