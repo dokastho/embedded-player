@@ -7,6 +7,9 @@ init_playercontext(void);
 void
 cleanup_playercontext(void);
 
+void
+cleanup_playercontext_crash(void);
+
 int
 run_app(void);
 

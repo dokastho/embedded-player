@@ -1053,3 +1053,17 @@ void bt_app_dev_ls()
         printf("\n");
     }
 }
+
+void bt_app_stream_file()
+{
+    // wait until state reaches connected state
+    while (s_a2d_state != APP_AV_STATE_CONNECTED)
+    {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+    // then wait for disconnect
+    while (s_a2d_state == APP_AV_STATE_CONNECTED)
+    {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+}

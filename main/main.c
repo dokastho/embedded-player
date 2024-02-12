@@ -2,7 +2,11 @@
 
 void app_main(void)
 {
-    init_playercontext();
+    if (init_playercontext() != 0)
+    {
+        cleanup_playercontext_crash();
+        return;
+    }
     run_app();
-    // cleanup_playercontext();
+    cleanup_playercontext();
 }

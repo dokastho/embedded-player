@@ -3,12 +3,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-
 #include "Player.h"
 #include "Panel.h"
 #include "bt_app_core.h"
 
-void getLineInput(char buf[], size_t len)
+static void getLineInput(char buf[], size_t len)
 {
     memset(buf, 0, len);
     fpurge(stdin); // clears any junk in stdin
@@ -73,11 +72,12 @@ int run_app(void)
         addr_index = atoi(input);
         if (addr_index < DEVICE_LIST_LEN)
         {
-            break;
+            bt_app_sel_target(addr_index);
+            // call a function to play music over this bluetooth connection
+            bt_app_stream_file();
+            continue;
         }
     }
-
-    bt_app_sel_target(addr_index);
 
     return 0;
 }

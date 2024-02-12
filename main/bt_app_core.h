@@ -88,4 +88,9 @@ void bt_app_sel_target(int);
  */
 void bt_app_dev_ls(void);
 
+/**
+ * @brief    play a music file
+ */
+void bt_app_stream_file(void);
+
 #endif /* __BT_APP_CORE_H__ */

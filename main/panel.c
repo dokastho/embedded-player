@@ -17,7 +17,13 @@ init_panel(void)
     ssd1306_clear_screen(&panel, false);
 	ssd1306_contrast(&panel, 0xff);
 	ssd1306_display_text_x3(&panel, 0, "BOOT", 5, false);
-	vTaskDelay(3000 / portTICK_PERIOD_MS);
+	vTaskDelay(1000 / portTICK_PERIOD_MS);
+    ssd1306_clear_screen(&panel, false);
+}
+
+void
+panel_clear()
+{
     ssd1306_clear_screen(&panel, false);
 }
 
