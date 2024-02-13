@@ -48,7 +48,7 @@ void spi_master_init(SSD1306_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int1
 
 	spi_bus_config_t spi_bus_config = {
 		.mosi_io_num = GPIO_MOSI,
-		.miso_io_num = GPIO_NUM_19,
+		.miso_io_num = -1,
 		.sclk_io_num = GPIO_SCLK,
 		.quadwp_io_num = -1,
 		.quadhd_io_num = -1,
