@@ -1,7 +1,7 @@
 #ifndef PANEL_H
 #define PANEL_H
 
-void
+int
 init_panel(void);
 
 void

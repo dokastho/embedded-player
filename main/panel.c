@@ -8,7 +8,7 @@
 
 SSD1306_t panel;
 
-void
+int
 init_panel(void)
 {
     spi_master_init(&panel, CONFIG_MOSI_GPIO, CONFIG_SCLK_GPIO, CONFIG_CS_GPIO, CONFIG_DC_GPIO, CONFIG_RESET_GPIO);
@@ -19,6 +19,7 @@ init_panel(void)
 	ssd1306_display_text_x3(&panel, 0, "BOOT", 5, false);
 	vTaskDelay(1000 / portTICK_PERIOD_MS);
     ssd1306_clear_screen(&panel, false);
+    return ESP_OK;
 }
 
 void

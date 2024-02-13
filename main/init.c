@@ -7,7 +7,10 @@
 int
 init_playercontext(void)
 {
-    init_panel();
+    if (init_panel() != 0)
+    {
+        return -1;
+    }
     if (init_fs() != 0)
     {
         return -1;
