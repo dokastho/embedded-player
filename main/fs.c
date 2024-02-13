@@ -20,7 +20,7 @@ int init_fs()
         .quadhd_io_num = -1,
         .max_transfer_sz = 4000,
     };
-    if (spi_bus_initialize(host.slot, &bus_cfg, SDSPI_DEFAULT_DMA) != ESP_OK) {
+    if (spi_bus_initialize(host.slot, &bus_cfg, VSPI_HOST) != ESP_OK) {
         printf("error spi bus init\n");
         return -1;
     }
