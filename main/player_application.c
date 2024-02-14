@@ -5,79 +5,68 @@
 
 #include "Player.h"
 #include "Panel.h"
-#include "bt_app_core.h"
+#include "esp_log.h"
+#include "sdkconfig.h"
+#include "nvs_flash.h"
+#include "audio_element.h"
+#include "audio_pipeline.h"
+#include "audio_event_iface.h"
+#include "audio_common.h"
+#include "esp_peripherals.h"
+#include "bluetooth_service.h"
+#include "mp3_decoder.h"
 
-static void getLineInput(char buf[], size_t len)
-{
-    memset(buf, 0, len);
-    fpurge(stdin); // clears any junk in stdin
-    char *bufp;
-    bufp = buf;
-    while (true)
-    {
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-        *bufp = getchar();
-        if (*bufp != '\0' && *bufp != 0xFF && *bufp != '\r') // ignores null input, 0xFF, CR in CRLF
-        {
-            //'enter' (EOL) handler
-            if (*bufp == '\n')
-            {
-                *bufp = '\0';
-                break;
-            } // backspace handler
-            else if (*bufp == '\b')
-            {
-                if (bufp - buf >= 1)
-                    bufp--;
-            }
-            else
-            {
-                // pointer to next character
-                bufp++;
-            }
-        }
+#include "audio_idf_version.h"
+#include "esp_netif.h"
 
-        // only accept len-1 characters, (len) character being null terminator.
-        if (bufp - buf > (len)-2)
-        {
-            bufp = buf + (len - 1);
-            *bufp = '\0';
-            break;
-        }
-    }
-}
 
 int run_app(void)
 {
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 1, 0))
+    ESP_ERROR_CHECK(esp_netif_init());
+#else
+    tcpip_adapter_init();
+#endif
+
+    esp_log_level_set("*", ESP_LOG_INFO);
+    audio_pipeline_handle_t pipeline;
+    audio_element_handle_t fatfs_stream_reader, mp3_decoder, bt_stream_writer;
+
     // display
     panel_display_text("Hello Grace!", 13);
 
     // bluetooth
-    bt_app_task_start_up();
-    char input[2];
-    unsigned int addr_index;
-    while (1)
+    bluetooth_service_cfg_t bt_cfg = {
+        .device_name = "ESP-ADF-SOURCE",
+        .mode = BLUETOOTH_A2DP_SOURCE,
+        .remote_name = CONFIG_BT_REMOTE_NAME,
+    };
+    if (bluetooth_service_start(&bt_cfg) != ESP_OK)
     {
-        fpurge(stdin);
-        printf("Select device or 'r' to refresh > ");
-        fflush(stdout);
-        getLineInput(input, 2);
-        printf("%s\n", input);
-
-        if (input[0] == 'r')
-        {
-            bt_app_dev_ls();
-            continue;
-        }
-        addr_index = atoi(input);
-        if (addr_index < DEVICE_LIST_LEN)
-        {
-            bt_app_sel_target(addr_index);
-            // call a function to play music over this bluetooth connection
-            bt_app_stream_file();
-            continue;
-        }
+        return -1;
     }
+    bt_stream_writer = bluetooth_service_create_stream();
 
+    mp3_decoder_cfg_t mp3_cfg = DEFAULT_MP3_DECODER_CONFIG();
+    mp3_decoder = mp3_decoder_init(&mp3_cfg);
+
+    audio_pipeline_cfg_t pipeline_cfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
+    pipeline = audio_pipeline_init(&pipeline_cfg);
+
+    audio_pipeline_register(pipeline, mp3_decoder,        "mp3");
+    audio_pipeline_register(pipeline, bt_stream_writer,   "bt");
+
+    const char *link_tag[3] = {"mp3", "bt"};
+    audio_pipeline_link(pipeline, &link_tag[0], 3);
+
+    bt_stream_writer = bluetooth_service_create_stream();
+    
     return 0;
 }
