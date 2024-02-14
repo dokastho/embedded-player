@@ -1,8 +1,20 @@
+#include <sys/stat.h>
+#include <string.h>
 #include "fs.h"
 #include "driver/sdspi_host.h"
 #include "sdmmc_cmd.h"
 #include "esp_vfs_fat.h"
 #include "esp_log.h"
+
+#define MOUNT_POINT "/sdcard"
+
+#define VFS_FAT_MOUNT_DEFAULT_CONFIG()     \
+    {                                      \
+        .format_if_mount_failed = false,   \
+        .max_files = 5,                    \
+        .allocation_unit_size = 0,         \
+        .disk_status_check_enable = false, \
+    }
 
 int init_fs()
 {
@@ -20,16 +32,17 @@ int init_fs()
         .quadhd_io_num = -1,
         .max_transfer_sz = 4000,
     };
-    if (spi_bus_initialize(host.slot, &bus_cfg, VSPI_HOST) != ESP_OK) {
+    if (spi_bus_initialize(host.slot, &bus_cfg, VSPI_HOST) != ESP_OK)
+    {
         printf("error spi bus init\n");
         return -1;
     }
     esp_vfs_fat_mount_config_t mount_config = VFS_FAT_MOUNT_DEFAULT_CONFIG();
-    sdmmc_card_t* card;
+    sdmmc_card_t *card;
 
     host.max_freq_khz = SDMMC_FREQ_DEFAULT;
 
-    if (esp_vfs_fat_sdspi_mount("/sdcard", &host, &slot_config, &mount_config, &card) != ESP_OK)
+    if (esp_vfs_fat_sdspi_mount(MOUNT_POINT, &host, &slot_config, &mount_config, &card) != ESP_OK)
     {
         printf("error sd card fs mount\n");
         return -1;

@@ -10,4 +10,7 @@ panel_clear(void);
 void
 panel_display_text(char*, unsigned);
 
+void
+panel_display_text_horizontal_scroll(char* text, unsigned length);
+
 #endif

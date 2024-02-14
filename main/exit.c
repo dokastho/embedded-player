@@ -19,6 +19,7 @@ cleanup_playercontext_crash(void)
 void
 cleanup_playercontext(void)
 {
+    panel_display_text("exiting.", 11);
     unsigned timeout = 10;
     printf("Restarting in %d seconds...\n", timeout);
     vTaskDelay((1000 * timeout) / portTICK_PERIOD_MS);
